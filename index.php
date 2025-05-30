@@ -14,6 +14,24 @@ if (isset($_GET['logout'])) {
     header('Location: login.php');
     exit();
 }
+
+require_once 'config.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit();
+}
+
+try {
+    $customer = new Customer();
+    $timeRange = 30; // Default to 30 days
+    
+    // Get top customers
+    $topCustomers = $customer->getTopCustomers($timeRange);
+    
+} catch (Exception $e) {
+    $error = htmlspecialchars($e->getMessage());
+}
 ?>
 <!DOCTYPE html>
 <html(lang='vi')
@@ -23,143 +41,9 @@ if (isset($_GET['logout'])) {
     <title>Matcha Vibe Co., Ltd. - Premium Matcha Products</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css"/>
+    <link href="assets/css/style_index.css" rel="stylesheet">
     <script src="https://unpkg.com/feather-icons"></script>
-    <style>
-        :root {
-            --primary: #1a4731;
-            --secondary: #2f855a;
-            --accent: #a7f3d0;
-            --light-bg: #f0fdf4;
-        }
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--light-bg);
-            scroll-behavior: smooth;
-            line-height: 1.6;
-        }
-
-        .navbar {
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .navbar a {
-            color: #ecfdf5;
-            padding: 0.75rem 1rem;
-            transition: all 0.3s ease;
-            border-radius: 0.5rem;
-        }
-
-        .navbar a:hover {
-            background: rgba(255, 255, 255, 0.15);
-            color: var(--accent);
-        }
-
-        .hero {
-            background: linear-gradient(to bottom, var(--light-bg), #dcfce7);
-            min-height: 80vh;
-            display: flex;
-            align-items: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .hero::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: url('https://images.unsplash.com/photo-1612210500007-8c4d04ed881c') center/cover no-repeat;
-            opacity: 0.1;
-            z-index: 0;
-        }
-
-        .section {
-            padding: 5rem 0;
-        }
-
-        .card {
-            background: white;
-            border-radius: 1rem;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-            padding: 2rem;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-0.5rem);
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
-        }
-
-        .product-card img {
-            transition: transform 0.3s ease;
-        }
-
-        .product-card:hover img {
-            transform: scale(1.05);
-        }
-
-        .footer {
-            background: var(--primary);
-            color: #ecfdf5;
-            padding: 4rem 2rem 2rem;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            font-weight: 600;
-            color: #ffffff !important;
-            background-color: #16a34a;
-            text-align: center;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            background-color: #15803d; /* Tailwind's bg-green-700 */
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .fade-in {
-            opacity: 0;
-            transform: translateY(1rem);
-            transition: opacity 0.6s ease, transform 0.6s ease;
-        }
-
-        .fade-in.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        @media (max-width: 768px) {
-            .nav-links {
-                display: none;
-            }
-
-            .nav-links.active {
-                display: flex;
-                flex-direction: column;
-                position: absolute;
-                top: 100%;
-                left: 0;
-                width: 100%;
-                background: var(--primary);
-                padding: 1rem;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            }
-
-            .hero {
-                min-height: 60vh;
-            }
-        }
-    </style>
 </head>
 <body>
     <!-- Navbar -->
@@ -172,8 +56,8 @@ if (isset($_GET['logout'])) {
             <div class="hidden md:flex items-center space-x-2 nav-links">
                 <a href="dashboard.php">Quản lý khách hàng</a>
                 <a href="statistics.php">Thống kê</a>
-                <a href="appointments.php">Đặt lịch hẹn</a>
-                <a href="chatbot.php">Chatbot AI</a>
+
+ 
                 <a href="settings.php">Cài đặt</a>
                 <?php if ($isLoggedIn): ?>
                     <a href="?logout=true" class="text-red-200 hover:bg-red-600">Đăng xuất</a>
@@ -197,8 +81,100 @@ if (isset($_GET['logout'])) {
         </div>
     </section>
 
+    <!-- Top Customers Section -->
+    <section class="section bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="card fade-in">
+                <div class="flex justify-between items-center mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 flex items-center">
+                        <i data-feather="award" class="w-6 h-6 mr-2 text-green-600"></i>
+                        Top 3 Khách Hàng (<?php echo $timeRange; ?> ngày qua)
+                    </h2>
+                    <a href="statistics.php" class="text-green-600 hover:text-green-700 flex items-center">
+                        <span class="mr-2">Xem thêm</span>
+                        <i data-feather="arrow-right" class="w-4 h-4"></i>
+                    </a>
+                </div>
+
+                <?php if (isset($error)): ?>
+                    <div class="bg-red-50 text-red-600 p-4 rounded-lg mb-6">
+                        <?php echo $error; ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (empty($topCustomers)): ?>
+                    <div class="text-center py-8">
+                        <i data-feather="users" class="w-12 h-12 text-gray-400 mx-auto mb-2"></i>
+                        <p class="text-lg font-medium text-gray-900">Chưa có dữ liệu khách hàng</p>
+                        <p class="text-sm text-gray-500">Thêm khách hàng mới để xem thống kê</p>
+                    </div>
+                <?php else: ?>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <?php 
+                        $medals = [
+                            ['bg' => 'bg-yellow-50', 'border' => 'border-yellow-200', 'text' => 'text-yellow-600', 'icon' => 'crown', 'title' => 'Khách Hàng Vàng'],
+                            ['bg' => 'bg-gray-50', 'border' => 'border-gray-200', 'text' => 'text-gray-600', 'icon' => 'award', 'title' => 'Khách Hàng Bạc'],
+                            ['bg' => 'bg-orange-50', 'border' => 'border-orange-200', 'text' => 'text-orange-600', 'icon' => 'award', 'title' => 'Khách Hàng Đồng']
+                        ];
+                        
+                        for ($i = 0; $i < min(3, count($topCustomers)); $i++): 
+                            $customer = $topCustomers[$i];
+                            $medal = $medals[$i];
+                        ?>
+                            <div class="rounded-xl border-2 <?php echo $medal['border']; ?> <?php echo $medal['bg']; ?> p-6 transition-transform duration-300 hover:-translate-y-2">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center">
+                                        <div class="w-12 h-12 rounded-full <?php echo $medal['bg']; ?> border-2 <?php echo $medal['border']; ?> flex items-center justify-center mr-4">
+                                            <i data-feather="<?php echo $medal['icon']; ?>" class="w-6 h-6 <?php echo $medal['text']; ?>"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-bold text-gray-900"><?php echo $medal['title']; ?></h3>
+                                            <p class="text-sm text-gray-600">Hạng <?php echo $i + 1; ?></p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <h4 class="font-medium text-gray-900"><?php echo htmlspecialchars($customer['TenKhachHang']); ?></h4>
+                                    <p class="text-sm text-gray-500"><?php echo htmlspecialchars($customer['Email']); ?></p>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm text-gray-600">Số đơn hàng:</span>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            <?php echo number_format($customer['SoLuongMua']); ?> đơn
+                                        </span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm text-gray-600">Tổng chi tiêu:</span>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            <?php echo number_format($customer['TongChiTieu'], 0, ',', '.'); ?>đ
+                                        </span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm text-gray-600">Giá trị TB/đơn:</span>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                            <?php echo number_format($customer['TongChiTieu'] / $customer['SoLuongMua'], 0, ',', '.'); ?>đ
+                                        </span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm text-gray-600">Lần cuối mua:</span>
+                                        <span class="text-sm text-gray-900">
+                                            <?php echo date('d/m/Y', strtotime($customer['LanMuaCuoi'])); ?>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endfor; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </section>
+
     <!-- Products Section -->
-    <section id="products" class="section bg-white">
+    <section id="#products" class="section bg-white">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 class="text-4xl font-bold text-gray-900 mb-12 text-center fade-in">Sản Phẩm Matcha Cao Cấp</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -384,5 +360,18 @@ if (isset($_GET['logout'])) {
             },
         });
     </script>
+    <!--Start of Tawk.to Script-->
+<script type="text/javascript">
+var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true;
+s1.src='https://embed.tawk.to/68399a1e70b16107011a15dd/1isgg41pq';
+s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*');
+s0.parentNode.insertBefore(s1,s0);
+})();
+</script>
+<!--End of Tawk.to Script-->
 </body>
 </html>

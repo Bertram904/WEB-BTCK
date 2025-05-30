@@ -1,343 +1,472 @@
 <?php
-session_start();
+require_once 'config.php';
 
-// Check if user is logged in
-$isLoggedIn = isset($_SESSION['user_id']);
-if (!$isLoggedIn && basename($_SERVER['PHP_SELF']) !== 'login.php') {
+// Kiểm tra session và quyền truy cập
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+if (!isset($_SESSION['user_id']) || empty($_SESSION['user_id'])) {
     header('Location: login.php');
     exit();
 }
 
-// Handle logout
+// Set active page for sidebar
+$activePage = 'dashboard';
+$pageTitle = 'Quản lý khách hàng';
+
 if (isset($_GET['logout'])) {
-    session_destroy();
+    try {
+    $user = new User();
+    $user->logout();
     header('Location: login.php');
     exit();
+    } catch (Exception $e) {
+        $error = "Lỗi đăng xuất: " . htmlspecialchars($e->getMessage());
+    }
 }
 
-// Mock customer data (replace with database query in production)
-$customers = [
-    ['id' => 1, 'name' => 'Nguyễn Văn A', 'email' => 'nguyenvana@example.com', 'phone' => '0901234567', 'status' => 'active'],
-    ['id' => 2, 'name' => 'Trần Thị B', 'email' => 'tranb@example.com', 'phone' => '0912345678', 'status' => 'inactive'],
-    ['id' => 3, 'name' => 'Lê Văn C', 'email' => 'levanc@example.com', 'phone' => '0923456789', 'status' => 'active'],
-];
+// Lấy danh sách khách hàng và thống kê
+try {
+    $customer = new Customer();
+    $filters = [];
+    
+    // Validate and sanitize filters
+    if (isset($_GET['search'])) {
+        $filters['search'] = htmlspecialchars($_GET['search']);
+    }
+    
+    if (isset($_GET['month_birthday'])) {
+        $monthBirthday = filter_var($_GET['month_birthday'], FILTER_VALIDATE_INT);
+        if ($monthBirthday !== false && $monthBirthday >= 1 && $monthBirthday <= 12) {
+            $filters['month_birthday'] = $monthBirthday;
+        }
+    }
+    
+    if (isset($_GET['min_purchases'])) {
+        $minPurchases = filter_var($_GET['min_purchases'], FILTER_VALIDATE_INT);
+        if ($minPurchases !== false && $minPurchases >= 0) {
+            $filters['min_purchases'] = $minPurchases;
+        }
+    }
+    
+    if (isset($_GET['age_min'])) {
+        $ageMin = filter_var($_GET['age_min'], FILTER_VALIDATE_INT);
+        if ($ageMin !== false && $ageMin >= 0) {
+            $filters['age_min'] = $ageMin;
+        }
+    }
+    
+    if (isset($_GET['age_max'])) {
+        $ageMax = filter_var($_GET['age_max'], FILTER_VALIDATE_INT);
+        if ($ageMax !== false && $ageMax >= 0) {
+            $filters['age_max'] = $ageMax;
+        }
+    }
 
-// Mock purchase history data (replace with database query)
-$purchase_history = [
-    1 => [
-        ['order_id' => 101, 'date' => '2025-04-10', 'products' => 'Ceremonial Matcha, Matcha Latte', 'total' => 450000],
-        ['order_id' => 102, 'date' => '2025-05-01', 'products' => 'Culinary Matcha', 'total' => 200000],
-    ],
-    2 => [],
-    3 => [
-        ['order_id' => 103, 'date' => '2025-03-15', 'products' => 'Matcha Latte', 'total' => 150000],
-    ],
-];
-
-// Calculate stats
-$totalCustomers = count($customers);
-$activeCustomers = count(array_filter($customers, fn($c) => $c['status'] === 'active'));
-$inactiveCustomers = $totalCustomers - $activeCustomers;
+    $customers = $customer->getAll($filters);
+    $stats = $customer->getStats();
+} catch (Exception $e) {
+    $error = htmlspecialchars($e->getMessage());
+    $customers = [];
+    $stats = [
+        'total' => 0,
+        'vip' => 0,
+        'loyal' => 0,
+        'regular' => 0,
+        'new' => 0
+    ];
+}
+// Include header and sidebar
+require_once 'includes/header.php';
+require_once 'includes/sidebar.php';
 ?>
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer Management Dashboard - Matcha Vibe</title>
+    <title>Quản lý khách hàng - Matcha Vibe</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="assets/css/style1.css" rel="stylesheet">
     <script src="https://unpkg.com/feather-icons"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f0fdf4;
-        }
-        .sidebar {
-            background: linear-gradient(180deg, #1a4731, #2f855a);
-            color: #ecfdf5;
-            height: 100vh;
-            position: fixed;
-            width: 260px;
-            padding: 30px 20px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        .sidebar h2 {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin-bottom: 2rem;
-            display: flex;
-            align-items: center;
-        }
-        .sidebar a {
-            color: #ecfdf5;
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            text-decoration: none;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            transition: all 0.3s ease;
-        }
-        .sidebar a:hover {
-            background: rgba(255, 255, 255, 0.2);
-            color: #a7f3d0;
-        }
-        .main-content {
-            margin-left: 260px;
-            padding: 40px;
-            min-height: 100vh;
-        }
-        .card {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-            padding: 32px;
-            margin-bottom: 24px;
-            transition: transform 0.3s ease;
-        }
-        .card:hover {
-            transform: translateY(-4px);
-        }
-        .table-header {
-            background: #dcfce7;
-            padding: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            color: #1a4731;
-            border-radius: 8px;
-        }
-        .table-header:hover {
-            background: #a7f3d0;
-        }
-        .table-row:hover {
-            background: #f0fdf4;
-        }
-        .status-active {
-            background: #dcfce7;
-            color: #2f855a;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-        .status-inactive {
-            background: #fee2e2;
-            color: #dc2626;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-        .search-bar {
-            width: 100%;
-            max-width: 320px;
-            padding: 10px 16px;
-            border: 1px solid #a7f3d0;
-            border-radius: 10px;
-            background: #ffffff;
-            transition: all 0.3s ease;
-        }
-        .search-bar:focus {
-            border-color: #2f855a;
-            box-shadow: 0 0 0 3px rgba(47, 133, 90, 0.1);
-        }
-        .btn {
-            padding: 10px 20px;
-            border-radius: 10px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-        }
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-        }
-        @media (max-width: 768px) {
-            .sidebar {
-                width: 200px;
-            }
-            .main-content {
-                margin-left: 200px;
-                padding: 20px;
-            }
-            .search-bar {
-                max-width: 100%;
-            }
-        }
+        
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <h2>
-            <i data-feather="grid" class="mr-2"></i> Matcha Vibe CRM
-        </h2>
-        <a href="index.php"><i data-feather="home" class="mr-2"></i> Trang chủ</a>
-        <a href="statistics.php"><i data-feather="bar-chart-2" class="mr-2"></i> Thống kê</a>
-        <a href="appointments.php"><i data-feather="calendar" class="mr-2"></i> Đặt lịch hẹn</a>
-        <a href="chatbot.php"><i data-feather="message-circle" class="mr-2"></i> Chatbot AI</a>
-        <a href="settings.php"><i data-feather="settings" class="mr-2"></i> Cài đặt</a>
-        <?php if ($isLoggedIn): ?>
-            <a href="?logout=true" class="text-red-200 hover:bg-red-600"><i data-feather="log-out" class="mr-2"></i> Đăng xuất</a>
-        <?php else: ?>
-            <a href="login.php"><i data-feather="log-in" class="mr-2"></i> Đăng nhập</a>
-        <?php endif; ?>
-    </div>
-
-    <!-- Main Content -->
-    <div class="main-content">
-        <!-- Header -->
-        <div class="flex flex-col sm:flex-row justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">Quản lý khách hàng</h1>
-            <div class="flex items-center space-x-4 mt-4 sm:mt-0">
-                <input type="text" id="searchInput" class="search-bar" placeholder="Tìm kiếm khách hàng...">
-                <button class="bg-green-600 text-white btn hover:bg-green-700">Thêm khách hàng</button>
-            </div>
-        </div>
+    
+    <main class="main-content">
+        <h1 class="text-3xl font-bold text-gray-900 mb-6">Quản lý khách hàng</h1>
 
         <!-- Stats Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <!-- Tổng khách hàng -->
             <div class="card flex items-center">
-                <div class="mr-4">
-                    <i data-feather="users" class="w-10 h-10 text-green-600"></i>
+                <div class="p-3 rounded-full bg-green-500 bg-opacity-10 mr-4">
+                    <i data-feather="users" class="w-8 h-8 text-green-600"></i>
                 </div>
                 <div>
-                    <p class="text-gray-500">Tổng khách hàng</p>
-                    <h3 class="text-2xl font-bold text-gray-900"><?php echo $totalCustomers; ?></h3>
+                    <p class="text-sm font-medium text-gray-600">Tổng khách hàng</p>
+                    <h3 class="text-2xl font-bold text-gray-900"><?php echo number_format($stats['total']); ?></h3>
                 </div>
             </div>
+            
+            <!-- Khách hàng VIP -->
             <div class="card flex items-center">
-                <div class="mr-4">
-                    <i data-feather="check-circle" class="w-10 h-10 text-green-600"></i>
+                <div class="p-3 rounded-full bg-purple-500 bg-opacity-10 mr-4">
+                    <i data-feather="award" class="w-8 h-8 text-purple-600"></i>
                 </div>
                 <div>
-                    <p class="text-gray-500">Hoạt động</p>
-                    <h3 class="text-2xl font-bold text-gray-900"><?php echo $activeCustomers; ?></h3>
+                    <p class="text-sm font-medium text-gray-600">Khách hàng VIP</p>
+                    <h3 class="text-2xl font-bold text-gray-900"><?php echo number_format($stats['vip']); ?></h3>
+                    <p class="text-xs text-gray-500">Chi tiêu ≥ 10M</p>
                 </div>
             </div>
+            
+            <!-- Khách hàng thân thiết -->
             <div class="card flex items-center">
-                <div class="mr-4">
-                    <i data-feather="x-circle" class="w-10 h-10 text-red-600"></i>
+                <div class="p-3 rounded-full bg-blue-500 bg-opacity-10 mr-4">
+                    <i data-feather="star" class="w-8 h-8 text-blue-600"></i>
                 </div>
                 <div>
-                    <p class="text-gray-500">Không hoạt động</p>
-                    <h3 class="text-2xl font-bold text-gray-900"><?php echo $inactiveCustomers; ?></h3>
+                    <p class="text-sm font-medium text-gray-600">Khách hàng thân thiết</p>
+                    <h3 class="text-2xl font-bold text-gray-900"><?php echo number_format($stats['loyal']); ?></h3>
+                    <p class="text-xs text-gray-500">Chi tiêu 5M - 10M</p>
+                </div>
+            </div>
+            
+            <!-- Khách hàng mới -->
+            <div class="card flex items-center">
+                <div class="p-3 rounded-full bg-yellow-500 bg-opacity-10 mr-4">
+                    <i data-feather="user-plus" class="w-8 h-8 text-yellow-600"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Khách hàng mới</p>
+                    <h3 class="text-2xl font-bold text-gray-900"><?php echo number_format($stats['new']); ?></h3>
+                    <p class="text-xs text-gray-500">Trong tháng này</p>
                 </div>
             </div>
         </div>
 
+        <!-- Filters -->
+    
         <!-- Customer Table -->
         <div class="card">
-            <h2 class="text-xl font-bold text-gray-900 mb-6">Danh sách khách hàng</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-900">Danh sách khách hàng</h2>
+                <div class="flex items-center gap-4">
+                    <div class="relative">
+                        <i data-feather="search" class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"></i>
+                        <input type="text" id="searchInput" class="form-input pl-10" placeholder="Tìm kiếm nhanh...">
+                    </div>
+                    <a href="them_khach_hang.php" class="bg-green-600 text-white btn rounded-lg px-4 py-2 font-semibold hover:bg-green-700">
+                        <i data-feather="user-plus" class="w-4 h-4 mr-2"></i>
+                        Thêm khách hàng
+                    </a>
+                </div>
+            </div>
+
+            <?php if (isset($_SESSION['error'])): ?>
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                    <strong class="font-bold">Lỗi!</strong>
+                    <span class="block sm:inline"><?php echo htmlspecialchars($_SESSION['error']); ?></span>
+                </div>
+                <?php unset($_SESSION['error']); ?>
+            <?php endif; ?>
+
+            <?php if (isset($_SESSION['success'])): ?>
+                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+                    <strong class="font-bold">Thành công!</strong>
+                    <span class="block sm:inline"><?php echo htmlspecialchars($_SESSION['success']); ?></span>
+                </div>
+                <?php unset($_SESSION['success']); ?>
+            <?php endif; ?>
+
             <div class="overflow-x-auto">
-                <table class="w-full text-left" id="customerTable">
+                <table class="w-full text-left">
                     <thead>
-                        <tr class="table-header">
-                            <th class="p-4" data-sort="name">Tên</th>
-                            <th data-sort="email">Email</th>
-                            <th data-sort="phone">Số điện thoại</th>
-                            <th data-sort="status">Trạng thái</th>
-                            <th>Hành động</th>
+                        <tr>
+                            <th class="table-header">Khách hàng</th>
+                            <th class="table-header">Email</th>
+                            <th class="table-header">Số điện thoại</th>
+                            <th class="table-header">Lượt mua</th>
+                            <th class="table-header">Trạng thái</th>
+                            <th class="table-header text-right">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($customers as $customer): ?>
-                            <tr class="table-row border-t border-gray-200">
-                                <td class="p-4"><?php echo htmlspecialchars($customer['name']); ?></td>
-                                <td><?php echo htmlspecialchars($customer['email']); ?></td>
-                                <td><?php echo htmlspecialchars($customer['phone']); ?></td>
-                                <td>
-                                    <span class="<?php echo $customer['status'] === 'active' ? 'status-active' : 'status-inactive'; ?>">
-                                        <?php echo $customer['status'] === 'active' ? 'Hoạt động' : 'Không hoạt động'; ?>
-                                    </span>
-                                </td>
-                                <td class="flex space-x-2">
-                                    <button class="text-blue-600 hover:text-blue-800 edit-btn" data-id="<?php echo $customer['id']; ?>">Sửa</button>
-                                    <button class="text-red-600 hover:text-red-800 delete-btn" data-id="<?php echo $customer['id']; ?>">Xóa</button>
-                                    <button class="text-green-600 hover:text-green-800 history-btn" data-id="<?php echo $customer['id']; ?>">Lịch sử</button>
+                        <?php if (empty($customers)): ?>
+                            <tr>
+                                <td colspan="6" class="p-4 text-center text-gray-500">
+                                    <div class="flex flex-col items-center justify-center py-6">
+                                        <i data-feather="users" class="w-12 h-12 text-gray-400 mb-2"></i>
+                                        <p class="text-lg font-medium">Không tìm thấy khách hàng nào</p>
+                                        <p class="text-sm text-gray-500">Thử thay đổi bộ lọc hoặc thêm khách hàng mới</p>
+                                    </div>
                                 </td>
                             </tr>
-                        <?php endforeach; ?>
+                        <?php else: ?>
+                            <?php foreach ($customers as $customer): ?>
+                                <tr class="border-t border-gray-200 hover:bg-gray-50">
+                                    <td class="p-3">
+                                        <div class="flex items-center">
+                                            <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                                             <i data-feather="user" class="w-5 h-5 text-green-600"></i>
+                                            </div>
+                                            <div>
+                                                <a href="customer_detail.php?id=<?php echo $customer['MaKhachHang']; ?>" 
+                                                   class="font-medium text-gray-900 hover:text-green-600 transition-colors duration-200">
+                                                    <?php echo htmlspecialchars($customer['TenKhachHang']); ?>
+                                                </a>
+                                                <div class="text-sm text-gray-500">ID: <?php echo $customer['MaKhachHang']; ?></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="p-3"><?php echo htmlspecialchars($customer['Email']); ?></td>
+                                    <td class="p-3"><?php echo htmlspecialchars($customer['DienThoai']); ?></td>
+                                    <td class="p-3">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            <?php echo isset($customer['SoLuongMua']) ? number_format($customer['SoLuongMua']) : 0; ?>
+                                            lượt mua
+                                        </span>
+                                    </td>
+                                    <td class="p-3">
+                                        <span class="status-badge <?php echo $customer['TrangThai'] === 'active' ? 'status-active' : 'status-inactive'; ?>">
+                                            <i data-feather="<?php echo $customer['TrangThai'] === 'active' ? 'check-circle' : 'x-circle'; ?>" class="w-4 h-4"></i>
+                                            <span><?php echo $customer['TrangThai'] === 'active' ? 'Hoạt động' : 'Không hoạt động'; ?></span>
+                                        </span>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="flex items-center justify-end space-x-2">
+                                            <a href="sua_khach_hang.php?id=<?php echo $customer['MaKhachHang']; ?>" 
+                                               class="text-blue-600 hover:text-blue-800 btn p-2" title="Sửa">
+                                                <i data-feather="edit" class="w-4 h-4"></i>
+                                            </a>
+                                            <button onclick="openChat(<?php echo $customer['MaKhachHang']; ?>, '<?php echo htmlspecialchars($customer['TenKhachHang']); ?>')"
+                                                    class="text-green-600 hover:text-green-800 btn p-2" title="Chat">
+                                                <i data-feather="message-circle" class="w-4 h-4"></i>
+                                            </button>
+                                            <a href="purchase_history.php?customer_id=<?php echo $customer['MaKhachHang']; ?>" 
+                                               class="text-purple-600 hover:text-purple-800 btn p-2" title="Lịch sử mua hàng">
+                                                <i data-feather="shopping-bag" class="w-4 h-4"></i>
+                                            </a>
+                                            <button onclick="if(confirm('Bạn có chắc muốn xóa khách hàng này?')) window.location.href='xoa_khach_hang.php?id=<?php echo $customer['MaKhachHang']; ?>'" 
+                                                    class="text-red-600 hover:text-red-800 btn p-2" title="Xóa">
+                                                <i data-feather="trash-2" class="w-4 h-4"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>
         </div>
+
+        <!-- Chat Modal -->
+        <div id="chatModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+                <div class="flex items-center justify-between p-4 border-b">
+                    <h3 class="text-xl font-semibold text-gray-900" id="chatTitle">Chat với khách hàng</h3>
+                    <button onclick="closeChat()" class="text-gray-400 hover:text-gray-500">
+                        <i data-feather="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <div class="p-4 h-96 overflow-y-auto" id="chatMessages">
+                    <!-- Messages will be loaded here -->
+                </div>
+                <div class="p-4 border-t">
+                    <form id="chatForm" class="flex gap-2">
+                        <input type="hidden" id="customerId" name="customer_id" value="">
+                        <input type="text" id="messageInput" name="message" 
+                               class="flex-1 form-input" placeholder="Nhập tin nhắn...">
+                        <button type="submit" class="bg-green-600 text-white btn rounded-lg px-4 py-2">
+                            <i data-feather="send" class="w-4 h-4"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <!-- Chatbot Floating Button -->
+<div class="fixed bottom-10 right-4 z-80">
+    <button id="chatbotToggle" class="bg-green-900 text-white rounded-full p-3 shadow-lg hover:bg-green-700 focus:outline-none">
+        <i data-feather="message-circle" class="w-9 h-9"></i>
+    </button>
+</div>
+
+<!-- Chatbot Panel (Hidden by default) -->
+<div id="chatbotPanel" class="hidden fixed bottom-16 right-4 w-96 bg-white rounded-lg shadow-xxl z-50">
+    <div class="p-4 border-b flex justify-between items-center">
+        <h2 class="text-lg font-bold text-gray-900">Chatbot Thông Tin Khách Hàng</h2>
+        <button id="chatbotClose" class="text-gray-400 hover:text-gray-500">
+            <i data-feather="x" class="w-5 h-5"></i>
+        </button>
     </div>
+    <div class="p-4">
+        <div class="mb-4">
+            <label for="chatbotCustomerId" class="block text-sm font-medium text-gray-700 mb-2">Chọn khách hàng</label>
+            <select id="chatbotCustomerId" class="form-input w-full">
+                <option value="">Chọn khách hàng...</option>
+                <?php foreach ($customers as $customer): ?>
+                    <option value="<?php echo htmlspecialchars($customer['MaKhachHang']); ?>">
+                        <?php echo htmlspecialchars($customer['TenKhachHang']); ?> (ID: <?php echo htmlspecialchars($customer['MaKhachHang']); ?>)
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div id="chatbotMessages" class="chatbot-panel bg-gray-100 p-4 rounded-lg mb-4 h-64 overflow-y-auto"></div>
+        <form id="chatbotForm" class="flex gap-2">
+            <input type="text" id="chatbotMessageInput" name="message" class="flex-1 form-input" placeholder="Hỏi thông tin khách hàng... (VD: email, số điện thoại, lượt mua)">
+            <button type="submit" class="bg-green-600 text-white btn rounded-lg px-4 py-2">
+                <i data-feather="send" class="w-4 h-4"></i>
+            </button>
+        </form>
+    </div>
+</div>
+    </main>
 
     <script>
-        feather.replace(); // Load feather icons
+        feather.replace();
+
+        // Chat functionality
+        let currentCustomerId = null;
+        const chatModal = document.getElementById('chatModal');
+        const chatTitle = document.getElementById('chatTitle');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatForm = document.getElementById('chatForm');
+        const customerId = document.getElementById('customerId');
+        const messageInput = document.getElementById('messageInput');
+
+        function loadMessages() {
+            fetch(`get_messages.php?customer_id=${currentCustomerId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(messages => {
+                    if (Array.isArray(messages)) {
+                        chatMessages.innerHTML = messages.map(msg => `
+                            <div class="mb-4 ${msg.sender_type === 'admin' ? 'text-right' : ''}">
+                                <div class="inline-block rounded-lg px-4 py-2 max-w-xs lg:max-w-md ${
+                                    msg.sender_type === 'admin' 
+                                    ? 'bg-green-600 text-white' 
+                                    : 'bg-gray-100 text-gray-800'
+                                }">
+                                    <p>${msg.message}</p>
+                                    <span class="text-xs opacity-75">${msg.sent_at}</span>
+                                </div>
+                            </div>
+                        `).join('');
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    } else {
+                        throw new Error('Invalid message format received');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading messages:', error);
+                    chatMessages.innerHTML = '<div class="text-red-500 text-center">Không thể tải tin nhắn. Vui lòng thử lại.</div>';
+                });
+        }
+
+        chatForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // Disable form while sending
+            const submitButton = this.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            messageInput.disabled = true;
+
+            fetch('send_messages.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `customer_id=${currentCustomerId}&message=${encodeURIComponent(message)}`
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    messageInput.value = '';
+                    loadMessages();
+                } else {
+                    alert(result.message || 'Không thể gửi tin nhắn. Vui lòng thử lại.');
+                }
+            })
+            .catch(error => {
+                console.error('Error sending message:', error);
+                alert('Có lỗi xảy ra khi gửi tin nhắn. Vui lòng thử lại.');
+            })
+            .finally(() => {
+                // Re-enable form
+                submitButton.disabled = false;
+                messageInput.disabled = false;
+                messageInput.focus();
+            });
+        });
+
+        // Auto-refresh messages every 5 seconds when chat is open
+        let messageInterval;
+        
+        function startMessagePolling() {
+            messageInterval = setInterval(() => {
+                if (currentCustomerId) {
+                    loadMessages();
+                }
+            }, 5000);
+        }
+
+        function stopMessagePolling() {
+            if (messageInterval) {
+                clearInterval(messageInterval);
+            }
+        }
+
+        function openChat(id, name) {
+            currentCustomerId = id;
+            customerId.value = id;
+            chatTitle.textContent = `Chat với ${name}`;
+            chatModal.classList.remove('hidden');
+            chatModal.classList.add('flex');
+            loadMessages();
+            messageInput.focus();
+            startMessagePolling();
+        }
+
+        function closeChat() {
+            chatModal.classList.add('hidden');
+            chatModal.classList.remove('flex');
+            currentCustomerId = null;
+            chatMessages.innerHTML = '';
+            stopMessagePolling();
+        }
 
         // Search functionality
         const searchInput = document.getElementById('searchInput');
-        const table = document.getElementById('customerTable');
-        const rows = table.querySelectorAll('tbody tr');
+        const tableRows = document.querySelectorAll('tbody tr');
 
-        searchInput.addEventListener('input', () => {
-            const searchTerm = searchInput.value.toLowerCase();
-            rows.forEach(row => {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            
+            tableRows.forEach(row => {
                 const text = row.textContent.toLowerCase();
                 row.style.display = text.includes(searchTerm) ? '' : 'none';
             });
         });
 
-        // Sort functionality
-        const headers = table.querySelectorAll('th[data-sort]');
-        headers.forEach(header => {
-            header.addEventListener('click', () => {
-                const sortKey = header.dataset.sort;
-                const isAscending = header.classList.toggle('asc');
-                const tbody = table.querySelector('tbody');
-                const rowsArray = Array.from(rows);
-
-                rowsArray.sort((a, b) => {
-                    const aText = a.querySelector(`td:nth-child(${Array.from(headers).indexOf(header) + 1})`).textContent;
-                    const bText = b.querySelector(`td:nth-child(${Array.from(headers).indexOf(header) + 1})`).textContent;
-                    return isAscending ? aText.localeCompare(bText) : bText.localeCompare(aText);
-                });
-
-                tbody.innerHTML = '';
-                rowsArray.forEach(row => tbody.appendChild(row));
-            });
-        });
-
-        // Button actions
-        document.querySelectorAll('.edit-btn').forEach(button => {
-            button.addEventListener('click', () => {
-                const id = button.dataset.id;
-                alert(`Chức năng sửa cho khách hàng ID ${id} đang được phát triển!`);
-            });
-        });
-
-        document.querySelectorAll('.delete-btn').forEach(button => {
-            button.addEventListener('click', () => {
-                const id = button.dataset.id;
-                if (confirm(`Bạn có chắc chắn muốn xóa khách hàng ID ${id}?`)) {
-                    alert(`Khách hàng ID ${id} đã được xóa!`);
-                }
-            });
-        });
-
-        // Purchase history button
-        document.querySelectorAll('.history-btn').forEach(button => {
-            button.addEventListener('click', () => {
-                const id = button.dataset.id;
-                const history = <?php echo json_encode($purchase_history); ?>[id] || [];
-                if (history.length === 0) {
-                    alert(`Khách hàng ID ${id} chưa có lịch sử mua hàng.`);
-                } else {
-                    let message = `Lịch sử mua hàng của khách hàng ID ${id}:\n\n`;
-                    history.forEach(order => {
-                        message += `Mã đơn: ${order.order_id}\nNgày: ${order.date}\nSản phẩm: ${order.products}\nTổng: ${order.total.toLocaleString()} VND\n\n`;
-                    });
-                    alert(message);
-                }
-            });
-        });
-
-        // Add customer button
-        document.querySelector('.bg-green-600').addEventListener('click', () => {
-            alert('Chức năng thêm khách hàng đang được phát triển!');
-        });
+        // Mobile sidebar toggle
+        const toggleSidebar = () => {
+            document.querySelector('.sidebar').classList.toggle('show');
+        };
+        
     </script>
 </body>
 </html>
