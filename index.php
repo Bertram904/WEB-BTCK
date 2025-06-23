@@ -51,7 +51,7 @@ try {
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
             <div class="flex items-center space-x-4">
                 <img src="https://th.bing.com/th/id/OIP.joBZlDpB5bVLwkpt4r3w8gHaHa?w=626&h=626&rs=1&pid=ImgDetMain" alt="Matcha Vibe Logo" class="h-12 w-12 rounded-full">
-                <span class="text-2xl font-bold text-ecfdf5">Matcha Vibe</span>
+                <span class="text-2xl font-bold text-white">Matcha Vibe</span>
             </div>
             <div class="hidden md:flex items-center space-x-2 nav-links">
                 <a href="dashboard.php">Quản lý khách hàng</a>

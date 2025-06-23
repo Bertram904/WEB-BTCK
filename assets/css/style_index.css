@@ -9,7 +9,7 @@ body {
 
 /* Navbar Styling */
 .navbar {
-    background: linear-gradient(90deg, #2f855a, #38a169);
+    background: linear-gradient(90deg,rgb(56, 166, 60),rgb(50, 165, 44));
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     position: sticky;
     top: 0;

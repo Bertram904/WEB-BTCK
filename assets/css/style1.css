@@ -1,12 +1,12 @@
 body { 
             font-family: 'Inter', sans-serif; 
-            background: #1a4731;
+            background:rgb(52, 132, 93);
             margin: 0;
             padding: 0;
         }
 
         .header {
-            background: #064e3b;
+            background:rgb(29, 161, 62);
             padding: 1rem 2rem;
             position: fixed;
             top: 0;
@@ -34,7 +34,7 @@ body {
         }
 
         .sidebar { 
-            background: linear-gradient(180deg, #1a4731, #2f855a);
+            background: linear-gradient(180deg,rgb(29, 161, 62),rgb(44, 160, 67));
             color: white;
             width: 260px;
             height: 100vh;

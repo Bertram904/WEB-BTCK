@@ -68,7 +68,7 @@ try {
     <div class="main-content">
         <h1 class="text-3xl font-bold text-gray-900 mb-6">Sửa khách hàng</h1>
         <div class="card">
-            <form method="POST" action="xu_ly_sua_khach_hang.php">
+            <form id="edit-customer-form">
                 <input type="hidden" name="id" value="<?php echo $data['MaKhachHang']; ?>">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
@@ -103,6 +103,7 @@ try {
                     <button type="submit" class="bg-green-600 text-white btn rounded-lg px-4 py-2 font-semibold hover:bg-green-700">Lưu thay đổi</button>
                     <a href="dashboard.php" class="bg-gray-300 text-gray-700 btn rounded-lg px-4 py-2 font-semibold hover:bg-gray-400">Hủy</a>
                 </div>
+                <div id="edit-result" class="mt-4 text-sm"></div>
             </form>
         </div>
     </div>
@@ -110,6 +111,32 @@ try {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.js"></script>
     <script>
         feather.replace();
+        document.getElementById('edit-customer-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const resultDiv = document.getElementById('edit-result');
+            resultDiv.textContent = 'Đang lưu...';
+            fetch('xu_ly_sua_khach_hang.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    resultDiv.textContent = 'Cập nhật thành công!';
+                    resultDiv.className = 'mt-4 text-green-600 text-sm';
+                    setTimeout(() => { window.location.href = 'dashboard.php?success=1'; }, 1200);
+                } else {
+                    resultDiv.textContent = data.message || 'Có lỗi xảy ra.';
+                    resultDiv.className = 'mt-4 text-red-600 text-sm';
+                }
+            })
+            .catch(() => {
+                resultDiv.textContent = 'Lỗi kết nối máy chủ.';
+                resultDiv.className = 'mt-4 text-red-600 text-sm';
+            });
+        });
     </script>
 </body>
 </html>

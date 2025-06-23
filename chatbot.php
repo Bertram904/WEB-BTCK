@@ -1,9 +1,15 @@
 <?php
 session_start();
 
+// --- PROMPT CHO AI ---
+//$INTENT_ANALYSIS_PROMPT = "\nBạn là một AI phân tích ý định người dùng cho hệ thống quản lý khách hàng Matcha Vibe. \nPhân tích câu hỏi của người dùng và trả về JSON với định dạng:\n\n{\n    \"intent\": \"tên_hành_động\",\n    \"entities\": {\n        \"id\": \"mã_khách_hàng_nếu_có\",\n        \"name\": \"tên_khách_hàng_nếu_có\",\n        \"phone\": \"số_điện_thoại_nếu_có\",\n        \"address\": \"địa_chỉ_nếu_có\",\n        \"birthday\": \"ngày_sinh_nếu_có_định_dạng_YYYY-MM-DD\",\n        \"keyword\": \"từ_khóa_tìm_kiếm_tên_khách_hàng\",\n        \"order_id\": \"mã_đơn_hàng_nếu_có\",\n        \"message\": \"tin_nhắn_nếu_có\"\n    },\n    \"confidence\": \"độ_tin_cậy_từ_0_đến_1\"\n}\n\nDanh sách các intent khả thi:\n- list_customers: liệt kê tất cả khách hàng\n- add_customer: thêm khách hàng mới\n- find_customer_by_id: tìm khách hàng theo ID\n- search_customers: tìm kiếm khách hàng theo tên\n- check_promotions: kiểm tra khuyến mãi theo ID\n- check_promotions_by_name: kiểm tra khuyến mãi theo tên\n- view_detailed_promotions: xem chi tiết khuyến mãi theo ID\n- view_detailed_promotions_by_name: xem chi tiết khuyến mãi theo tên\n- view_order_history: xem lịch sử đơn hàng theo ID\n- view_order_history_by_name: xem lịch sử đơn hàng theo tên\n- view_order_details: xem chi tiết đơn hàng theo mã đơn\n- view_order_details_by_name: xem chi tiết đơn hàng theo tên\n- edit_customer: chỉnh sửa thông tin khách hàng\n- copy_customer: sao chép thông tin khách hàng\n- delete_customer: xóa khách hàng\n- check_birthday_by_id: kiểm tra thông tin sinh nhật theo ID\n- check_birthday_by_name: kiểm tra thông tin sinh nhật theo tên\n- upcoming_birthdays: xem danh sách khách hàng có sinh nhật trong 30 ngày tới\n- general_question: câu hỏi chung hoặc không xác định được ý định\n\nHướng dẫn:\n- Chào hỏi người dùng một cách thân thiện và lịch sự.\n- Phân tích câu hỏi để xác định intent và entities cần thiết.\n- Xác định intent dựa trên nội dung câu hỏi, ưu tiên khớp chính xác với từ khóa hoặc ngữ cảnh.\n- Trích xuất entities chỉ khi thông tin rõ ràng trong câu hỏi (e.g., ID, tên, số điện thoại, địa chỉ, ngày sinh, mã đơn hàng).\n- Nếu câu hỏi chứa 'sinh nhật' và '30 ngày' hoặc 'sắp tới', gán intent là 'upcoming_birthdays' và không cần entities.\n- Nếu câu hỏi không khớp với intent cụ thể, gán intent là 'general_question' với confidence thấp.\n- Đảm bảo confidence phản ánh độ chắc chắn của phân tích, từ 0.0 đến 1.0 (e.g., 0.95 cho khớp chính xác, 0.6 cho câu hỏi mơ hồ).\n- Định dạng ngày sinh phải là YYYY-MM-DD nếu được trích xuất.\n\nVí dụ:\n- 'Liệt kê danh sách khách hàng' -> {\"intent\": \"list_customers\", \"entities\": {}, \"confidence\": 0.9}\n- 'Tìm khách hàng Nguyễn Văn A' -> {\"intent\": \"search_customers\", \"entities\": {\"keyword\": \"Nguyễn Văn A\"}, \"confidence\": 0.9}\n- 'Tìm khách hàng ID 1' -> {\"intent\": \"find_customer_by_id\", \"entities\": {\"id\": \"1\"}, \"confidence\": 0.95}\n- 'Sinh nhật của Nguyễn Văn A' -> {\"intent\": \"check_birthday_by_name\", \"entities\": {\"keyword\": \"Nguyễn Văn A\"}, \"confidence\": 0.85}\n- 'Chi tiết đơn hàng của Nguyễn Văn B' -> {\"intent\": \"view_order_details_by_name\", \"entities\": {\"keyword\": \"Nguyễn Văn B\"}, \"confidence\": 0.85}\n- 'Thêm khách hàng tên Nguyễn Văn A, số điện thoại 0912345678, địa chỉ Hà Nội, ngày sinh 1990-01-01' -> {\"intent\": \"add_customer\", \"entities\": {\"name\": \"Nguyễn Văn A\", \"phone\": \"0912345678\", \"address\": \"Hà Nội\", \"birthday\": \"1990-01-01\"}, \"confidence\": 0.95}\n- 'Sửa khách hàng ID 1 với tên Nguyễn Văn B, địa chỉ TP.HCM' -> {\"intent\": \"edit_customer\", \"entities\": {\"id\": \"1\", \"name\": \"Nguyễn Văn B\", \"address\": \"TP.HCM\"}, \"confidence\": 0.9}\n- 'Sao chép khách hàng ID 2' -> {\"intent\": \"copy_customer\", \"entities\": {\"id\": \"2\"}, \"confidence\": 0.95}\n- 'Xóa khách hàng ID 3' -> {\"intent\": \"delete_customer\", \"entities\": {\"id\": \"3\"}, \"confidence\": 0.95}\n- 'Kiểm tra sinh nhật ID 1' -> {\"intent\": \"check_birthday_by_id\", \"entities\": {\"id\": \"1\"}, \"confidence\": 0.95}\n- 'Xem chi tiết đơn hàng mã 123' -> {\"intent\": \"view_order_details\", \"entities\": {\"order_id\": \"123\"}, \"confidence\": 0.95}\n- 'Xem khuyến mãi của khách hàng ID 4' -> {\"intent\": \"check_promotions\", \"entities\": {\"id\": \"4\"}, \"confidence\": 0.95}\n- 'Xem chi tiết khuyến mãi của Nguyễn Văn A' -> {\"intent\": \"view_detailed_promotions_by_name\", \"entities\": {\"keyword\": \"Nguyễn Văn A\"}, \"confidence\": 0.85}\n- 'Xem lịch sử đơn hàng của Nguyễn Văn A' -> {\"intent\": \"view_order_history_by_name\", \"entities\": {\"keyword\": \"Nguyễn Văn A\"}, \"confidence\": 0.85}\n- 'Câu hỏi chung về dịch vụ' -> {\"intent\": \"general_question\", \"entities\": {}, \"confidence\": 0.7}\n- 'Sinh nhật trong 30 ngày tới' -> {\"intent\": \"upcoming_birthdays\", \"entities\": {}, \"confidence\": 0.9}\n- 'Khách nào sắp có sinh nhật?' -> {\"intent\": \"upcoming_birthdays\", \"entities\": {}, \"confidence\": 0.85}\n- 'Danh sách sinh nhật sắp tới' -> {\"intent\": \"upcoming_birthdays\", \"entities\": {}, \"confidence\": 0.9}\n\nPhân tích: \"{{user_message}}\"";
+
+//$RESPONSE_GENERATION_PROMPT = "\nBạn là trợ lý quản lý khách hàng thân thiện, chuyên nghiệp của Matcha Vibe. \nDựa trên dữ liệu ngữ cảnh, trả lời câu hỏi của người dùng một cách tự nhiên, dễ hiểu bằng tiếng Việt:\n\nNgữ cảnh: {{context_text}}\n\nYêu cầu: {{user_message}}\n\nHướng dẫn:\n- Sử dụng ngôn ngữ thân thiện, lịch sự, phù hợp với thương hiệu Matcha Vibe.\n- Sử dụng bảng HTML để hiển thị danh sách khách hàng, kết quả tìm kiếm, lịch sử đơn hàng, chi tiết đơn hàng, chi tiết khuyến mãi, hoặc danh sách sinh nhật sắp tới.\n- Không sử dụng HTML cho các hành động như thêm, sửa, xóa, sao chép khách hàng, hoặc hiển thị thông tin sinh nhật của một khách hàng cụ thể.\n- Nếu tìm kiếm theo tên trả về nhiều khách hàng, liệt kê danh sách với ID và tên trong bảng HTML, yêu cầu người dùng cung cấp ID cụ thể.\n- Nếu thiếu thông tin (e.g., ID, tên, hoặc thông tin cần thiết để thêm/sửa khách hàng), hướng dẫn người dùng cung cấp chi tiết một cách thân thiện.\n- Chào khách hang bằng tên nếu có, hoặc sử dụng 'Quý khách' nếu không rõ tên.\n- Nếu intent là 'general_question', trả lời câu hỏi một cách tự nhiên, không cần hiển thị bảng HTML.\n- Tránh lặp lại thông tin không cần thiết, chỉ hiển thị dữ liệu liên quan đến yêu cầu.\n- Nếu intent là 'upcoming_birthdays', hiển thị danh sách khách hàng có sinh nhật trong 30 ngày tới trong bảng HTML, bao gồm ID, tên, và ngày sinh.\n- Học từ các phản hồi trước để cải thiện độ chính xác và tự nhiên trong câu trả lời.\n";
+
 // Initialize variables
 $messages = isset($_SESSION['messages']) ? $_SESSION['messages'] : [];
 $is_loading = false;
+$is_ajax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 
 // Include prompt and database configuration
 require_once 'prompt.php';
@@ -205,9 +211,7 @@ class IntentAnalyzer {
 
     public function analyzeIntent($user_message) {
         global $INTENT_ANALYSIS_PROMPT;
-
         $system_prompt = str_replace('{{user_message}}', $user_message, $INTENT_ANALYSIS_PROMPT);
-
         $data = [
             'contents' => [
                 [
@@ -217,22 +221,23 @@ class IntentAnalyzer {
                 ]
             ]
         ];
-
+        //gửi yêu cầu đến Gemini API
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' . $this->gemini_api_key;
+        // thiết lập cURL để gửi yêu cầu POST
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $this->gemini_url . '?key=' . $this->gemini_api_key);
+        curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json; charset=UTF-8']);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data, JSON_UNESCAPED_UNICODE));
-        
+        // gửi yêu cầu và nhận phản hồi HTTP
         $response = curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
-
+        // trích xuất ý định từ phản hồi
         if ($http_code === 200 && $response) {
             $result = json_decode($response, true);
             $text_response = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
-            
             if (preg_match('/\{.*\}/s', $text_response, $matches)) {
                 $intent_data = json_decode($matches[0], true);
                 if ($intent_data) {
@@ -240,7 +245,6 @@ class IntentAnalyzer {
                 }
             }
         }
-
         return $this->fallbackIntentAnalysis($user_message);
     }
 
@@ -257,6 +261,13 @@ class IntentAnalyzer {
                 'confidence' => 0.95
             ];
         }
+        if (in_array($message, ['hello', 'hi', 'xin chào', 'chào', 'chào bạn', 'chào bot', 'hi bot', 'hello bot'])) {
+        return [
+            'intent' => 'greeting',
+            'entities' => [],
+            'confidence' => 1.0
+        ];
+    }
 
         if (strpos($message, 'liệt kê') !== false || strpos($message, 'danh sách') !== false) {
             return ['intent' => 'list_customers', 'entities' => [], 'confidence' => 0.8];
@@ -533,7 +544,12 @@ class EnhancedChatbot {
                     ];
                 }
                 break;
-
+            case 'greeting':
+               return [
+                'type' => 'greeting',
+                'data' => null,
+                'message' => 'Xin chào! Tôi là trợ lý Matcha Vibe, rất vui được hỗ trợ ạ!🌱'
+            ];
             case 'check_promotions_by_name':
                 $keyword = $entities['keyword'] ?? $user_message;
                 $customers = $this->db->searchCustomers($keyword);
@@ -776,7 +792,7 @@ class EnhancedChatbot {
                 return [
                     'type' => 'general',
                     'data' => null,
-                    'message' => 'Tôi có thể giúp quản lý khách hàng. Hãy thử: tìm khách hàng theo tên, kiểm tra sinh nhật, xem đơn hàng, khuyến mãi, hoặc thêm khách hàng mới.'
+                    'message' => 'Tôi có thể giúp quản lý khách hàng. Xin lỗi bạn vì hiện tại tôi không thể xử lý yêu cầu này. Mời bạn nhập lại câu hỏi hoặc yêu cầu khác.'
                 ];
         }
 
@@ -788,7 +804,7 @@ class EnhancedChatbot {
     }
 
     private function generateNaturalResponse($user_message, $context_data, $intent) {
-        global $RESPONSE_GENERATION_PROMPT; // Updated variable name to match prompt.php
+        global $RESPONSE_GENERATION_PROMPT;
 
         $context_text = $this->formatContextForGemini($context_data);
         $system_prompt = str_replace(
@@ -807,23 +823,25 @@ class EnhancedChatbot {
             ]
         ];
 
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' . $this->gemini_api_key;
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $this->gemini_url . '?key=' . $this->gemini_api_key);
+        curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json; charset=UTF-8']);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data, JSON_UNESCAPED_UNICODE));
-        
         $response = curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
         if ($http_code === 200 && $response) {
             $result = json_decode($response, true);
-            return $result['candidates'][0]['content']['parts'][0]['text'] ?? $context_text;
+            $text = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
+            if (trim($text) !== '') {
+                return $text;
+            }
         }
-
-        return $context_text; // Fallback to formatted context if API fails
+        return $context_text;
     }
 
     private function formatContextForGemini($context_data) {
@@ -913,7 +931,8 @@ class EnhancedChatbot {
                 }
                 $table .= "</tbody></table>";
                 return htmlspecialchars($message) . ":<br>" . $table;
-
+            case 'greeting':
+                return htmlspecialchars($message);
             case 'order_history':
                 if (empty($data)) return htmlspecialchars($message);
                 $table = "<table class='table-auto w-full border-collapse border border-gray-300'>";
@@ -1021,21 +1040,77 @@ class EnhancedChatbot {
 
 // Khởi tạo
 $db = new Database();
-$gemini_api_key = 'AIzaSyAyDTT-nNkKiJnb81LowUsEk_2FsnOXb09ekk'; // Replace with actual API key
-$gemini_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+$gemini_api_key = 'AIzaSyDTT-nNKiJnb81LowUsEk_2FsnOXb09ekk';
+$gemini_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 $chatbot = new EnhancedChatbot($gemini_api_key, $gemini_url, $db);
 
 // Xử lý POST request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['message'])) {
     $user_message = trim($_POST['message']);
     $messages[] = ['sender' => 'user', 'text' => $user_message];
+    $_SESSION['messages'] = $messages;
     $is_loading = true;
-
+    // Lưu trạng thái loading để hiển thị hiệu ứng dấu ba chấm
+    $_SESSION['is_loading'] = true;
+    // Xử lý trả lời bot
     $bot_response = $chatbot->processMessage($user_message, session_id());
     $messages[] = ['sender' => 'bot', 'text' => $bot_response];
-
     $_SESSION['messages'] = $messages;
     $is_loading = false;
+    $_SESSION['is_loading'] = false;
+}
+
+// --- AJAX partial rendering for chat container ---
+if ($is_ajax) {
+    ob_start();
+    ?>
+    <div id="chat-container" class="h-96 overflow-y-auto p-6 bg-gray-50 space-y-4">
+        <?php if (empty($messages)): ?>
+            <div class="text-center text-gray-500 py-8">
+                <div class="text-4xl mb-4">🤖</div>
+                <p class="text-lg">Xin chào! Tôi có thể giúp bạn:</p>
+                <div class="mt-4 text-sm text-left max-w-md mx-auto bg-white p-4 rounded-lg">
+                    <ul class="space-y-2">
+                        <li>• Tìm khách hàng theo tên (VD: Tìm Nguyễn Văn A)</li>
+                        <li>• Xem sinh nhật theo tên (VD: Sinh nhật của Nguyễn Văn A)</li>
+                        <li>• Xem chi tiết đơn hàng theo tên (VD: Chi tiết đơn hàng của Nguyễn Văn A)</li>
+                        <li>• Liệt kê tất cả khách hàng</li>
+                        <li>• Kiểm tra khuyến mãi, đơn hàng theo ID</li>
+                        <li>• Thêm, sửa, sao chép, hoặc xóa khách hàng</li>
+                    </ul>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <?php foreach ($messages as $msg): ?>
+            <?php if ($msg['sender'] === 'user'): ?>
+                <div class="flex justify-end">
+                    <div class="bg-emerald-200 text-gray-900 rounded-lg px-4 py-2 mb-2 max-w-xl shadow">
+                        <?php echo htmlspecialchars($msg['text']); ?>
+                    </div>
+                </div>
+            <?php else: ?>
+                <div class="flex justify-start">
+                    <div class="bg-white border border-emerald-200 text-gray-800 rounded-lg px-4 py-2 mb-2 max-w-xl shadow chat-container">
+                        <?php echo $msg['text']; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+        <?php endforeach; ?>
+
+        <?php if (!empty($_SESSION['is_loading']) && $_SESSION['is_loading']): ?>
+            <div class="flex justify-start">
+                <div class="typing-indicator">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+    <?php
+    echo ob_get_clean();
+    exit;
 }
 ?>
 
@@ -1091,7 +1166,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['message'])) {
                             <ul class="space-y-2">
                                 <li>• Tìm khách hàng theo tên (VD: Tìm Nguyễn Văn A)</li>
                                 <li>• Xem sinh nhật theo tên (VD: Sinh nhật của Nguyễn Văn A)</li>
-                                <li>• Xem sinh nhật trong 30 ngày tới (VD: Sinh nhật sắp tới)</li>
                                 <li>• Xem chi tiết đơn hàng theo tên (VD: Chi tiết đơn hàng của Nguyễn Văn A)</li>
                                 <li>• Liệt kê tất cả khách hàng</li>
                                 <li>• Kiểm tra khuyến mãi, đơn hàng theo ID</li>
@@ -1116,7 +1190,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['message'])) {
                         </div>
                     <?php endif; ?>
                 <?php endforeach; ?>
-                <?php if ($is_loading): ?>
+
+                <?php if (!empty($_SESSION['is_loading']) && $_SESSION['is_loading']): ?>
                     <div class="flex justify-start">
                         <div class="typing-indicator">
                             <span class="typing-dot"></span>
@@ -1128,21 +1203,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['message'])) {
             </div>
 
             <!-- Chat Form -->
-            <form method="POST" action="" class="flex items-center gap-2 border-t px-6 py-4 bg-white">
-                <input 
-                    type="text" 
-                    name="message" 
-                    class="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400" 
-                    placeholder="Nhập tên khách hàng, sinh nhật sắp tới, đơn hàng hoặc yêu cầu khác..." 
-                    autocomplete="off"
-                    required
-                >
-                <button 
-                    type="submit" 
-                    class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                    Gửi
-                </button>
-            </form>
+            <form id="chat-form" class="flex items-center gap-2 border-t px-6 py-4 bg-white" autocomplete="off">
+            <input 
+                 type="text" 
+                 name="message" 
+                 id="message-input"
+        class="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400" 
+        placeholder="Xin mời bạn nhập câu hỏi hoặc yêu cầu của mình..." 
+        autocomplete="off"
+        required
+    >
+    <button 
+        type="submit" 
+        class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
+        Gửi
+    </button>
+</form>
         </div>
     </div>
     <script src="https://unpkg.com/feather-icons"></script>
@@ -1153,5 +1229,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['message'])) {
             if (chat) chat.scrollTop = chat.scrollHeight;
         };
     </script>
+    <script>
+feather.replace();
+window.onload = function() {
+    var chat = document.getElementById('chat-container');
+    if (chat) chat.scrollTop = chat.scrollHeight;
+};
+
+document.getElementById('chat-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const input = document.getElementById('message-input');
+    const message = input.value.trim();
+    if (!message) return;
+
+    // 1. Hiển thị tin nhắn người dùng ngay lập tức
+    const chatContainer = document.getElementById('chat-container');
+    const userDiv = document.createElement('div');
+    userDiv.className = 'flex justify-end';
+    userDiv.innerHTML = `
+        <div class="bg-emerald-200 text-gray-900 rounded-lg px-4 py-2 mb-2 max-w-xl shadow">
+            ${escapeHtml(message)}
+        </div>
+    `;
+    chatContainer.appendChild(userDiv);
+
+    // 2. Hiển thị hiệu ứng typing ngay sau tin nhắn user
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'flex justify-start typing-indicator-wrapper';
+    typingDiv.innerHTML = `
+        <div class="typing-indicator">
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+        </div>
+    `;
+    chatContainer.appendChild(typingDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+
+    input.value = '';
+    input.focus();
+
+    // 3. Gửi AJAX
+    fetch('', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'message=' + encodeURIComponent(message)
+    })
+    .then(res => res.text())
+    .then(html => {
+        // Parse lại phần chat-container từ response
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newChat = doc.getElementById('chat-container');
+        if (newChat) {
+            chatContainer.innerHTML = newChat.innerHTML;
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+    });
+
+    // Hàm escape HTML để tránh lỗi XSS
+    function escapeHtml(text) {
+        var map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+});
+</script>
 </body>
 </html>

@@ -353,6 +353,7 @@ require_once 'includes/sidebar.php';
                     <label for="notes" class="block text-sm font-medium text-gray-700 mb-2">
                         Ghi chú
                     </label>
+                    
                     <textarea id="notes" name="notes" rows="2"
                               class="form-input" placeholder="Nhập ghi chú (nếu có)"></textarea>
                 </div>
